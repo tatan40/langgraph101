@@ -1,0 +1,9 @@
+{
+    "python.defaultInterpreterPath": "${workspaceFolder}/api/.venv/bin/python",
+    "python.analysis.extraPaths": ["${workspaceFolder}/api"],
+    "flake8.enabled": false,
+    "pylint.enabled": false,
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff"
+    }
+}

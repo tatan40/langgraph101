@@ -68,3 +68,44 @@ def analysis_questions(lang: Lang = "fr") -> dict[str, Question]:
 
 def analysis_state(body: str, subject: str | None = None) -> dict:
     return {"email": {"subject": subject or "", "body": body}}
+
+
+# Contrôle qualité du brouillon : chaque Noul est formulé pour que « oui » = critère respecté.
+VERIFICATION_QUESTIONS: dict[str, dict[str, str]] = {
+    "polie": {
+        "fr": "La réponse `reply` est-elle polie et professionnelle ?",
+        "en": "Is the reply `reply` polite and professional?",
+    },
+    "reconnait_emotion": {
+        "fr": "La réponse `reply` tient-elle compte de l'état d'esprit de l'auteur de `email` "
+              "(sans le nier ni en rajouter) ?",
+        "en": "Does the reply `reply` take into account the state of mind of the author of `email` "
+              "(without dismissing or exaggerating it)?",
+    },
+    "sans_engagement_invente": {
+        "fr": "La réponse `reply` évite-t-elle toute promesse précise (date, montant, remboursement, "
+              "geste commercial) que rien dans `email` ne justifie ?",
+        "en": "Does the reply `reply` avoid any specific promise (date, amount, refund, compensation) "
+              "that nothing in `email` justifies?",
+    },
+    "sans_sarcasme": {
+        "fr": "La réponse `reply` est-elle exempte d'ironie, de sarcasme ou de reproche envers l'auteur ?",
+        "en": "Is the reply `reply` free of irony, sarcasm, or reproach toward the author?",
+    },
+    "traite_la_demande": {
+        "fr": "La réponse `reply` répond-elle au sujet ou à la demande de `email` ?",
+        "en": "Does the reply `reply` address the topic or request of `email`?",
+    },
+    "en_francais": {
+        "fr": "La réponse `reply` est-elle entièrement rédigée en français ?",
+        "en": "Is the reply `reply` written entirely in French?",
+    },
+}
+
+
+def verification_questions(lang: Lang = "fr") -> dict[str, Question]:
+    return {k: Noul(instructions=v[lang]) for k, v in VERIFICATION_QUESTIONS.items()}
+
+
+def verification_state(email: dict, reply: dict) -> dict:
+    return {"email": email, "reply": reply}
