@@ -31,7 +31,8 @@ FEEDBACK_HINTS = {
     "reconnait_emotion": "tiens compte de l'état d'esprit de l'auteur",
     "sans_engagement_invente": "retire toute promesse précise (date, montant, remboursement)",
     "sans_sarcasme": "supprime toute ironie ou tout reproche",
-    "traite_la_demande": "réponds précisément à la demande de l'auteur",
+    "traite_la_demande": "réponds explicitement à chacune des demandes de l'auteur",
+    "sans_fait_invente": "n'affirme aucune action en cours ni aucun fait que tu ne connais pas",
     "en_francais": "rédige entièrement en français",
 }
 
@@ -45,6 +46,12 @@ Règles :
 - Pas d'ironie, pas de reproche envers l'auteur.
 - Signe « Le service client ».
 Renvoie un objet JSON avec les champs "subject" et "body"."""
+
+INTERNAL_FEEDBACK = """
+
+Consignes internes (le client n'en sait rien, ne les mentionne jamais dans la réponse) :
+ta version précédente a été refusée par le contrôle qualité. Corrige ces points :
+{hints}"""
 
 
 class _ReplySchema(BaseModel):
@@ -66,9 +73,12 @@ class OllamaWriter:
                     feedback: list[str] | None = None) -> Reply:
         system = SYSTEM.format(label=BY_ID[temperament].label, intensite=intensite,
                                strategy=STRATEGIES[temperament])
-        user = f"Objet : {email['subject']}\n\n{email['body']}"
         if feedback:
-            user += ("\n\nUn premier brouillon a été refusé. Corrige ces points : "
-                     + ", ".join(FEEDBACK_HINTS.get(f, f) for f in feedback))
+            # Dans le message système, pas dans le message user : sinon le modèle croit
+            # que le client parle d'un « brouillon refusé » et lui répond à ce sujet.
+            system += INTERNAL_FEEDBACK.format(
+                hints="\n".join(f"- {FEEDBACK_HINTS.get(f, f)}" for f in feedback))
+        # Le message user ne contient que l'email du client.
+        user = f"Email du client :\nObjet : {email['subject']}\n\n{email['body']}"
         out: _ReplySchema = await self._llm.ainvoke([("system", system), ("user", user)])
         return {"subject": out.subject, "body": out.body}

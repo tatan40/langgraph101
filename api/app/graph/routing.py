@@ -10,6 +10,10 @@ def decide_after_analysis(a: Analysis, s: Settings) -> Decision:
     if a["escalade"] > s.escalade_threshold or a["temperament"] == "hostile":
         return {"route": "human_review",
                 "reason": f"Revue humaine obligatoire : {label}, risque d'escalade {a['escalade']:.0%}."}
+    if a["demande_humain"] > s.human_request_threshold:
+        return {"route": "human_review",
+                "reason": f"{label} : l'auteur demande à parler à une personne "
+                          f"({a['demande_humain']:.0%})."}
     if a["confidence"] < s.min_confidence:
         first, second = sorted(a["probabilities"], key=a["probabilities"].get, reverse=True)[:2]
         return {"route": "human_review",

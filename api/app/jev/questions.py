@@ -24,6 +24,10 @@ _TEXT = {
             "Le message `email` contient-il une menace, une mise en demeure, une intention d'action "
             "en justice ou un risque pour la sécurité d'une personne ?"
         ),
+        "demande_humain": (
+            "L'auteur de `email` demande-t-il explicitement à parler à une personne, à être rappelé "
+            "ou à joindre un responsable ou un conseiller ?"
+        ),
     },
     "en": {
         "temperament": "What is the dominant temperament of the author of the French message `email`?",
@@ -39,6 +43,10 @@ _TEXT = {
         "escalade": (
             "Does the French message `email` contain a threat, a formal notice, an intent to take "
             "legal action, or a risk to someone's safety?"
+        ),
+        "demande_humain": (
+            "Does the author of the French message `email` explicitly ask to speak to a person, to be "
+            "called back, or to reach a manager or an advisor?"
         ),
     },
 }
@@ -58,6 +66,7 @@ def analysis_questions(lang: Lang = "fr") -> dict[str, Question]:
         "intensite": Score(instructions=txt["intensite"], criteria=txt["intensite_levels"]),
         "attend_reponse": Noul(instructions=txt["attend_reponse"]),
         "escalade": Noul(instructions=txt["escalade"]),
+        "demande_humain": Noul(instructions=txt["demande_humain"]),
     }
     for t in TEMPERAMENTS:
         desc = _desc(t, lang)
@@ -93,8 +102,16 @@ VERIFICATION_QUESTIONS: dict[str, dict[str, str]] = {
         "en": "Is the reply `reply` free of irony, sarcasm, or reproach toward the author?",
     },
     "traite_la_demande": {
-        "fr": "La réponse `reply` répond-elle au sujet ou à la demande de `email` ?",
-        "en": "Does the reply `reply` address the topic or request of `email`?",
+        "fr": "La réponse `reply` répond-elle explicitement à chacune des demandes formulées dans `email` "
+              "(et pas seulement à son sujet général) ?",
+        "en": "Does the reply `reply` explicitly address each request made in `email` "
+              "(not just its general topic)?",
+    },
+    "sans_fait_invente": {
+        "fr": "La réponse `reply` s'abstient-elle d'affirmer des faits ou des actions en cours "
+              "(vérification, traitement, solution) que rien dans `email` ne permet de connaître ?",
+        "en": "Does the reply `reply` refrain from asserting facts or ongoing actions (checking, "
+              "processing, a solution) that nothing in `email` makes it possible to know?",
     },
     "en_francais": {
         "fr": "La réponse `reply` est-elle entièrement rédigée en français ?",

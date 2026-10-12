@@ -15,6 +15,7 @@ from pathlib import Path
 from langgraph.types import Command
 from typesafe_sdk import AsyncTypeSafeClient, RetryPolicy
 
+from app import observability
 from app.config import settings
 from app.graph.build import build_graph
 from app.jev.client import JevJudge
@@ -46,12 +47,12 @@ def show(node: str, patch: dict) -> None:
                 if p >= settings.tons_display_threshold and t != a["temperament"]]
         print(f"  tons second.: {', '.join(tons) or '—'}")
         print(f"  intensité   : {a['intensite']:.1f}/3   attend une réponse : {a['attend_reponse']:.0%}"
-              f"   escalade : {a['escalade']:.0%}")
+              f"   escalade : {a['escalade']:.0%}   veut un humain : {a['demande_humain']:.0%}")
     if d := patch.get("draft"):
         print(f"  brouillon n°{patch['attempts']} — {d['subject']}")
         print("  " + d["body"].replace("\n", "\n  "))
     if v := patch.get("verification"):
-        print("  contrôles   : " + ", ".join(f"{k} {'✓' if p >= settings.verify_threshold else '✗'} {p:.0%}"
+        print("  contrôles   : " + ", ".join(f"{k} {'✗' if k in v['failed'] else '✓'} {p:.0%}"
                                            for k, p in v["checks"].items()))
     if dec := patch.get("decision"):
         print(f"  → {dec['route']} : {dec['reason']}")
@@ -89,25 +90,34 @@ async def run(email: dict, auto: str | None) -> None:
     key = settings.typesafe_api_key.get_secret_value() if settings.typesafe_api_key else None
     async with AsyncTypeSafeClient(api_key=key, retry=RetryPolicy(max_retries=3)) as client:
         graph = build_graph(JevJudge(client, settings), OllamaWriter(settings), settings)
-        config = {"configurable": {"thread_id": str(uuid.uuid4())}}
+        thread_id = str(uuid.uuid4())
+        # callbacks : le handler Langfuse reçoit chaque node, chaque appel LLM, chaque reprise.
+        config = {"configurable": {"thread_id": thread_id}, "callbacks": observability.callbacks()}
         payload: object = {"email": email}
-        while True: 
-            paused = None
-            # stream_mode="updates" : un événement par node terminé, avec le patch qu'il a renvoyé.
-            async for chunk in graph.astream(payload, config, stream_mode="updates"):
-                for node, patch in chunk.items():
-                    if node == "__interrupt__":
-                        paused = patch[0].value
-                    else:
-                        show(node, patch)
-            if paused is None:
-                break
-            payload = Command(resume=ask_human(paused, auto))
+        with observability.trace_run(thread_id, email) as root:
+            while True:
+                paused = None
+                # stream_mode="updates" : un événement par node terminé, avec le patch qu'il a renvoyé.
+                async for chunk in graph.astream(payload, config, stream_mode="updates"):
+                    for node, patch in chunk.items():
+                        if node == "__interrupt__":
+                            paused = patch[0].value
+                        else:
+                            show(node, patch)
+                if paused is None:
+                    break
+                payload = Command(resume=ask_human(paused, auto))
 
-        final = (await graph.aget_state(config)).values["final"]
+            final = (await graph.aget_state(config)).values["final"]
+            if root:
+                root.update(output=final)
+
         print(f"\n=== Résultat : {final['status']} · {BY_ID[final['temperament']].label} ===")
         if final["reply"]:
             print(final["reply"]["body"])
+        observability.flush()
+        if url := observability.session_url(settings, thread_id):
+            print(f"\nTrace Langfuse : {url}")
 
 
 ### Point d'entrée : lit les options du terminal et lance le programme.
@@ -125,6 +135,8 @@ def main() -> None:
         return
     if not (args.text or args.id):
         p.error("fournir un texte ou --id")
+    if not observability.init_tracing(settings):
+        print("(Langfuse désactivé : LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY absents)")
     asyncio.run(run(load_email(args), args.auto))
 
 

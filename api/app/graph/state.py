@@ -22,6 +22,7 @@ class Analysis(TypedDict):
     intensite: float                # 0 (aucune émotion) à 3 (émotion dominante)
     attend_reponse: float
     escalade: float
+    demande_humain: float           # l'auteur demande à parler à une personne
 
 
 Route = Literal["draft", "human_review", "finalize"]

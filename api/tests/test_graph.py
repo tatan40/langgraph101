@@ -10,10 +10,11 @@ from app.graph.build import build_graph
 S = Settings(_env_file=None)
 
 
-def analysis(temperament="neutre", confidence=0.95, attend=0.9, escalade=0.0):
+def analysis(temperament="neutre", confidence=0.95, attend=0.9, escalade=0.0, humain=0.0):
     return {"temperament": temperament, "confidence": confidence,
             "probabilities": {temperament: confidence, "frustre": 1 - confidence},
-            "tons": {}, "intensite": 1.0, "attend_reponse": attend, "escalade": escalade}
+            "tons": {}, "intensite": 1.0, "attend_reponse": attend, "escalade": escalade,
+            "demande_humain": humain}
 
 
 class FakeJudge:
@@ -82,6 +83,13 @@ async def test_hostile_pause_avant_redaction_puis_rejet():
     values, pauses = await run(judge, writer, {"action": "reject"})
     assert pauses[0]["draft"] is None
     assert values["final"]["status"] == "rejected" and writer.calls == []
+
+
+async def test_demande_a_parler_a_un_humain_pause_avant_redaction():
+    judge, writer = FakeJudge(analysis("frustre", humain=0.9), [True]), FakeWriter()
+    values, pauses = await run(judge, writer, {"action": "approve"})
+    assert "parler à une personne" in pauses[0]["reason"] and pauses[0]["draft"] is None
+    assert values["final"]["status"] == "replied"
 
 
 async def test_confiance_faible_categorie_corrigee_par_humain():
